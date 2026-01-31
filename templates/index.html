@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Activity Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        .header {
+            padding: 20px 40px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .header h1 span {
+            color: #6c63ff;
+        }
+
+        .add-btn {
+            background: #6c63ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .add-btn:hover {
+            background: #5a52d5;
+            transform: translateY(-1px);
+        }
+
+        .board {
+            display: flex;
+            gap: 20px;
+            padding: 30px 40px;
+            overflow-x: auto;
+            min-height: calc(100vh - 80px);
+        }
+
+        .column {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            min-width: 320px;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-title {
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .column-count {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .column[data-status="todo"] .column-title {
+            color: #f39c12;
+        }
+
+        .column[data-status="in-progress"] .column-title {
+            color: #3498db;
+        }
+
+        .column[data-status="done"] .column-title {
+            color: #2ecc71;
+        }
+
+        .cards {
+            padding: 12px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 200px;
+        }
+
+        .cards.drag-over {
+            background: rgba(108, 99, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: grab;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(108, 99, 255, 0.3);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg);
+        }
+
+        .card-title {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .card-description {
+            font-size: 13px;
+            color: #a0a0a0;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(108, 99, 255, 0.2);
+            color: #a8a3ff;
+        }
+
+        .tag.tool {
+            background: rgba(52, 152, 219, 0.2);
+            color: #5dade2;
+        }
+
+        .tag.project {
+            background: rgba(46, 204, 113, 0.2);
+            color: #58d68d;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .card:hover .card-actions {
+            opacity: 1;
+        }
+
+        .card-actions button {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #a0a0a0;
+            transition: all 0.2s;
+        }
+
+        .card-actions button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .card-actions .delete-btn:hover {
+            background: rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #a0a0a0;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        .modal-actions button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cancel-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #a0a0a0;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        .save-btn {
+            background: #6c63ff;
+            border: none;
+            color: white;
+        }
+
+        .save-btn:hover {
+            background: #5a52d5;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #606060;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>AI</span> Activity Tracker</h1>
+        <button class="add-btn" onclick="openModal()">+ New Activity</button>
+    </div>
+
+    <div class="board">
+        <div class="column" data-status="todo">
+            <div class="column-header">
+                <span class="column-title">To Do</span>
+                <span class="column-count" id="todo-count">0</span>
+            </div>
+            <div class="cards" data-status="todo"></div>
+        </div>
+
+        <div class="column" data-status="in-progress">
+            <div class="column-header">
+                <span class="column-title">In Progress</span>
+                <span class="column-count" id="in-progress-count">0</span>
+            </div>
+            <div class="cards" data-status="in-progress"></div>
+        </div>
+
+        <div class="column" data-status="done">
+            <div class="column-header">
+                <span class="column-title">Done</span>
+                <span class="column-count" id="done-count">0</span>
+            </div>
+            <div class="cards" data-status="done"></div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <h2 id="modal-title">New Activity</h2>
+            <form id="activity-form">
+                <input type="hidden" id="activity-id">
+                
+                <div class="form-group">
+                    <label for="title">Title *</label>
+                    <input type="text" id="title" required placeholder="What are you working on?">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" placeholder="Add details about this activity..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="ai-tool">AI Tool</label>
+                    <select id="ai-tool">
+                        <option value="">Select tool...</option>
+                        <option value="Claude">Claude</option>
+                        <option value="ChatGPT">ChatGPT</option>
+                        <option value="Copilot">GitHub Copilot</option>
+                        <option value="Gemini">Gemini</option>
+                        <option value="Midjourney">Midjourney</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="project">Project</label>
+                    <input type="text" id="project" placeholder="e.g., The Decode, Oracle Cloud">
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="todo">To Do</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="save-btn">Save Activity</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let activities = [];
+        let draggedCard = null;
+
+        // Fetch and render activities
+        async function loadActivities() {
+            const response = await fetch('/api/activities');
+            activities = await response.json();
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const columns = {
+                'todo': document.querySelector('.cards[data-status="todo"]'),
+                'in-progress': document.querySelector('.cards[data-status="in-progress"]'),
+                'done': document.querySelector('.cards[data-status="done"]')
+            };
+
+            // Clear columns
+            Object.values(columns).forEach(col => col.innerHTML = '');
+
+            // Count activities per column
+            const counts = {
+                'todo': 0,
+                'in-progress': 0,
+                'done': 0
+            };
+
+            // Sort and render activities
+            activities
+                .sort((a, b) => a.position - b.position)
+                .forEach(activity => {
+                    const card = createCardElement(activity);
+                    columns[activity.status].appendChild(card);
+                    counts[activity.status]++;
+                });
+
+            // Update counts
+            document.getElementById('todo-count').textContent = counts['todo'];
+            document.getElementById('in-progress-count').textContent = counts['in-progress'];
+            document.getElementById('done-count').textContent = counts['done'];
+
+            // Add empty states
+            Object.entries(columns).forEach(([status, column]) => {
+                if (counts[status] === 0) {
+                    column.innerHTML = '<div class="empty-state">Drop activities here</div>';
+                }
+            });
+        }
+
+        function createCardElement(activity) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.id = activity.id;
+
+            let tagsHtml = '';
+            if (activity.ai_tool) {
+                tagsHtml += `<span class="tag tool">${activity.ai_tool}</span>`;
+            }
+            if (activity.project) {
+                tagsHtml += `<span class="tag project">${activity.project}</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-title">${escapeHtml(activity.title)}</div>
+                ${activity.description ? `<div class="card-description">${escapeHtml(activity.description)}</div>` : ''}
+                <div class="card-meta">${tagsHtml}</div>
+                <div class="card-actions">
+                    <button onclick="editActivity(${activity.id})">Edit</button>
+                    <button class="delete-btn" onclick="deleteActivity(${activity.id})">Delete</button>
+                </div>
+            `;
+
+            // Drag events
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+
+            return card;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Drag and drop handlers
+        function handleDragStart(e) {
+            draggedCard = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.cards').forEach(col => col.classList.remove('drag-over'));
+            draggedCard = null;
+        }
+
+        // Setup drop zones
+        document.querySelectorAll('.cards').forEach(column => {
+            column.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                column.classList.add('drag-over');
+            });
+
+            column.addEventListener('dragleave', () => {
+                column.classList.remove('drag-over');
+            });
+
+            column.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                column.classList.remove('drag-over');
+
+                if (!draggedCard) return;
+
+                const newStatus = column.dataset.status;
+                const cardId = parseInt(draggedCard.dataset.id);
+
+                // Update in backend
+                const activity = activities.find(a => a.id === cardId);
+                if (activity) {
+                    activity.status = newStatus;
+                    await fetch(`/api/activities/${cardId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(activity)
+                    });
+                    renderBoard();
+                }
+            });
+        });
+
+        // Modal functions
+        function openModal(activity = null) {
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('modal-title').textContent = activity ? 'Edit Activity' : 'New Activity';
+
+            if (activity) {
+                document.getElementById('activity-id').value = activity.id;
+                document.getElementById('title').value = activity.title;
+                document.getElementById('description').value = activity.description || '';
+                document.getElementById('ai-tool').value = activity.ai_tool || '';
+                document.getElementById('project').value = activity.project || '';
+                document.getElementById('status').value = activity.status;
+            } else {
+                document.getElementById('activity-form').reset();
+                document.getElementById('activity-id').value = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function editActivity(id) {
+            const activity = activities.find(a => a.id === id);
+            if (activity) openModal(activity);
+        }
+
+        async function deleteActivity(id) {
+            if (confirm('Delete this activity?')) {
+                await fetch(`/api/activities/${id}`, { method: 'DELETE' });
+                await loadActivities();
+            }
+        }
+
+        // Form submission
+        document.getElementById('activity-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('activity-id').value;
+            const data = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                ai_tool: document.getElementById('ai-tool').value,
+                project: document.getElementById('project').value,
+                status: document.getElementById('status').value,
+                position: 0
+            };
+
+            if (id) {
+                await fetch(`/api/activities/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                await fetch('/api/activities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+
+            closeModal();
+            await loadActivities();
+        });
+
+        // Close modal on overlay click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        // Initial load
+        loadActivities();
+    </script>
+</body>
+</html>
