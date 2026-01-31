@@ -38,6 +38,48 @@
             color: #6c63ff;
         }
 
+        .pro-badge {
+            background: linear-gradient(45deg, #6c63ff, #5a52d5);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .integration-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-right: 12px;
+        }
+
+        .status-indicator {
+            font-size: 12px;
+        }
+
+        .status-text {
+            font-size: 11px;
+            color: #a0a0a0;
+        }
+
+        .integration-status.healthy .status-text {
+            color: #2ecc71;
+        }
+
+        .integration-status.degraded .status-text {
+            color: #f39c12;
+        }
+
+        .integration-status.failed .status-text {
+            color: #e74c3c;
+        }
+
         .header-actions {
             display: flex;
             gap: 12px;
@@ -371,6 +413,55 @@
         .card-actions .delete-btn:hover {
             background: rgba(231, 76, 60, 0.3);
             color: #e74c3c;
+        }
+
+        .card-actions .execute-btn {
+            background: rgba(108, 99, 255, 0.2);
+            color: #6c63ff;
+        }
+
+        .card-actions .execute-btn:hover {
+            background: rgba(108, 99, 255, 0.4);
+            color: #a8a3ff;
+        }
+
+        .card-actions .retry-btn {
+            background: rgba(243, 156, 18, 0.2);
+            color: #f39c12;
+        }
+
+        .card-actions .retry-btn:hover {
+            background: rgba(243, 156, 18, 0.4);
+            color: #f39c12;
+        }
+
+        .card-status-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #95a5a6;
+        }
+
+        .card-status-indicator.executing {
+            background: #6c63ff;
+            animation: pulse 2s infinite;
+        }
+
+        .card-status-indicator.success {
+            background: #2ecc71;
+        }
+
+        .card-status-indicator.failed {
+            background: #e74c3c;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
         }
 
         /* Dashboard View */
@@ -732,15 +823,118 @@
             background: rgba(255, 255, 255, 0.05);
             color: #fff;
         }
+
+        /* Integration Dashboard */
+        .integration-dashboard {
+            padding: 30px 40px;
+        }
+
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .capability-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 16px;
+            border-left: 4px solid #6c63ff;
+        }
+
+        .capability-name {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .capability-description {
+            font-size: 13px;
+            color: #a0a0a0;
+            line-height: 1.4;
+        }
+
+        .sessions-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid #3498db;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .session-label {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .session-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(52, 152, 219, 0.2);
+            color: #3498db;
+        }
+
+        .session-details {
+            font-size: 13px;
+            color: #a0a0a0;
+        }
+
+        .health-checks {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .health-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .health-indicator {
+            font-size: 16px;
+        }
+
+        .health-label {
+            flex: 1;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .health-status {
+            font-size: 13px;
+            color: #a0a0a0;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1><span>AI</span> Activity Tracker</h1>
+        <h1><span>AI</span> Activity Tracker <span class="pro-badge">Pro</span></h1>
         <div class="header-actions">
+            <div class="integration-status" id="integration-status">
+                <span class="status-indicator" id="status-indicator">🟡</span>
+                <span class="status-text" id="status-text">Checking...</span>
+            </div>
             <div class="nav-tabs">
                 <button class="nav-tab active" onclick="showView('board')">Board</button>
                 <button class="nav-tab" onclick="showView('dashboard')">Dashboard</button>
+                <button class="nav-tab" onclick="showView('integration')">Integration</button>
             </div>
             <button class="notification-btn" id="notification-toggle" onclick="toggleNotifications()">
                 <span id="notification-icon">🔔</span>
@@ -809,6 +1003,69 @@
             <h3>Failure Analysis</h3>
             <div class="failure-list" id="failure-list">
                 <!-- Failures populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Integration View -->
+    <div class="dashboard" id="integration-view">
+        <div class="integration-dashboard">
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <h3>Clawdbot Status</h3>
+                    <div class="stat-value" id="clawdbot-status">Checking...</div>
+                    <div class="stat-subtitle" id="clawdbot-version">Version info loading...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sessions Active</h3>
+                    <div class="stat-value" id="active-sessions">-</div>
+                    <div class="stat-subtitle">Background tasks running</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Auto-Execute</h3>
+                    <div class="stat-value" id="auto-execute-status">-</div>
+                    <div class="stat-subtitle">Automatic task execution</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Message Tool</h3>
+                    <div class="stat-value" id="message-tool-status">-</div>
+                    <div class="stat-subtitle">Notification system</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Available Clawdbot Capabilities</h3>
+                <div class="capabilities-grid" id="capabilities-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Recent Session Activity</h3>
+                <div class="sessions-list" id="sessions-list">
+                    <div class="empty-state">Loading session information...</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Integration Health</h3>
+                <div class="health-checks" id="health-checks">
+                    <div class="health-item">
+                        <span class="health-indicator" id="health-clawdbot">🟡</span>
+                        <span class="health-label">Clawdbot Availability</span>
+                        <span class="health-status" id="health-clawdbot-status">Checking...</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-indicator" id="health-sessions">🟡</span>
+                        <span class="health-label">Sessions Spawn</span>
+                        <span class="health-status" id="health-sessions-status">Checking...</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-indicator" id="health-notifications">🟡</span>
+                        <span class="health-label">Notification System</span>
+                        <span class="health-status" id="health-notifications-status">Checking...</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -915,18 +1172,25 @@
         let draggedCard = null;
         let activeTimers = {};
 
-        // View switching
+        // Enhanced view switching with integration view
         function showView(view) {
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
             
+            // Hide all views
+            document.getElementById('board-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('active');
+            document.getElementById('integration-view').classList.remove('active');
+            
+            // Show selected view
             if (view === 'board') {
                 document.getElementById('board-view').classList.remove('hidden');
-                document.getElementById('dashboard-view').classList.remove('active');
-            } else {
-                document.getElementById('board-view').classList.add('hidden');
+            } else if (view === 'dashboard') {
                 document.getElementById('dashboard-view').classList.add('active');
                 loadDashboard();
+            } else if (view === 'integration') {
+                document.getElementById('integration-view').classList.add('active');
+                loadIntegrationDashboard();
             }
         }
 
@@ -1131,61 +1395,7 @@
             });
         }
 
-        function createCardElement(activity) {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.draggable = true;
-            card.dataset.id = activity.id;
-
-            let tagsHtml = '';
-            if (activity.ai_tool) {
-                tagsHtml += `<span class="tag tool">${activity.ai_tool}</span>`;
-            }
-            if (activity.project) {
-                tagsHtml += `<span class="tag project">${activity.project}</span>`;
-            }
-            if (activity.time_spent > 0) {
-                tagsHtml += `<span class="tag time">⏱ ${formatTime(activity.time_spent)}</span>`;
-            }
-            if (activity.outcome) {
-                const outcomeClass = activity.outcome === 'success' ? '' : activity.outcome === 'partial' ? 'partial' : 'failed';
-                const outcomeIcon = activity.outcome === 'success' ? '✓' : activity.outcome === 'partial' ? '◐' : '✗';
-                tagsHtml += `<span class="tag outcome ${outcomeClass}">${outcomeIcon} ${activity.outcome}</span>`;
-            }
-            if (activity.iteration_count > 1) {
-                tagsHtml += `<span class="tag iterations">${activity.iteration_count} iterations</span>`;
-            }
-
-            const isRunning = activity.time_started && activeTimers[activity.id];
-            card.innerHTML = `
-                <div class="card-title">${escapeHtml(activity.title)}</div>
-                ${activity.description ? `<div class="card-description">${escapeHtml(activity.description)}</div>` : ''}
-                <div class="card-meta">${tagsHtml}</div>
-                <div class="card-timer">
-                    <span class="timer-display" id="timer-${activity.id}">${formatTime(activity.time_spent || 0)}</span>
-                    <button class="timer-btn ${isRunning ? 'running' : ''}" onclick="toggleTimer(${activity.id}, event)">
-                        ${isRunning ? '⏹ Stop' : '▶ Start'}
-                    </button>
-                    <button class="iteration-btn" onclick="incrementIteration(${activity.id}, event)">
-                        +1 Iteration
-                    </button>
-                </div>
-                <div class="card-actions">
-                    <button onclick="editActivity(${activity.id})">Edit</button>
-                    <button class="delete-btn" onclick="deleteActivity(${activity.id})">Delete</button>
-                </div>
-            `;
-
-            card.addEventListener('dragstart', handleDragStart);
-            card.addEventListener('dragend', handleDragEnd);
-
-            // Start timer interval if running
-            if (activity.time_started && !activeTimers[activity.id]) {
-                startTimerInterval(activity);
-            }
-
-            return card;
-        }
+        // (Enhanced createCardElement function moved above with execute/retry buttons)
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -1381,9 +1591,297 @@
             if (e.target.id === 'modal') closeModal();
         });
 
+        // Integration Dashboard Functions
+        async function loadIntegrationDashboard() {
+            await checkIntegrationHealth();
+            await loadCapabilities();
+            await loadSessionStatus();
+        }
+
+        async function checkIntegrationHealth() {
+            try {
+                const response = await fetch('/api/integration/health');
+                const health = await response.json();
+                
+                // Update header status
+                const statusIndicator = document.getElementById('status-indicator');
+                const statusText = document.getElementById('status-text');
+                const statusContainer = document.getElementById('integration-status');
+                
+                if (health.clawdbot_available && health.sessions_spawn_available && health.message_tool_available) {
+                    statusIndicator.textContent = '🟢';
+                    statusText.textContent = 'Healthy';
+                    statusContainer.className = 'integration-status healthy';
+                } else if (health.clawdbot_available) {
+                    statusIndicator.textContent = '🟡';
+                    statusText.textContent = 'Degraded';
+                    statusContainer.className = 'integration-status degraded';
+                } else {
+                    statusIndicator.textContent = '🔴';
+                    statusText.textContent = 'Failed';
+                    statusContainer.className = 'integration-status failed';
+                }
+                
+                // Update integration view
+                document.getElementById('clawdbot-status').textContent = health.clawdbot_available ? 'Connected' : 'Disconnected';
+                document.getElementById('auto-execute-status').textContent = health.sessions_spawn_available ? 'Enabled' : 'Disabled';
+                document.getElementById('message-tool-status').textContent = health.message_tool_available ? 'Available' : 'Unavailable';
+                
+                // Update health checks
+                updateHealthCheck('health-clawdbot', health.clawdbot_available);
+                updateHealthCheck('health-sessions', health.sessions_spawn_available);
+                updateHealthCheck('health-notifications', health.message_tool_available && health.notifications_enabled);
+                
+            } catch (error) {
+                console.error('Integration health check failed:', error);
+                document.getElementById('status-indicator').textContent = '🔴';
+                document.getElementById('status-text').textContent = 'Error';
+            }
+        }
+
+        function updateHealthCheck(elementId, isHealthy) {
+            const indicator = document.getElementById(elementId);
+            const status = document.getElementById(elementId + '-status');
+            
+            if (isHealthy) {
+                indicator.textContent = '🟢';
+                status.textContent = 'Operational';
+                status.style.color = '#2ecc71';
+            } else {
+                indicator.textContent = '🔴';
+                status.textContent = 'Failed';
+                status.style.color = '#e74c3c';
+            }
+        }
+
+        async function loadCapabilities() {
+            try {
+                const response = await fetch('/api/capabilities');
+                const capabilities = await response.json();
+                
+                const capabilitiesGrid = document.getElementById('capabilities-grid');
+                capabilitiesGrid.innerHTML = '';
+                
+                // Add tools
+                Object.entries(capabilities.tools).forEach(([tool, description]) => {
+                    const card = document.createElement('div');
+                    card.className = 'capability-card';
+                    card.innerHTML = `
+                        <div class="capability-name">🛠️ ${tool}</div>
+                        <div class="capability-description">${description}</div>
+                    `;
+                    capabilitiesGrid.appendChild(card);
+                });
+                
+                // Add browsers
+                capabilities.browsers.forEach(browser => {
+                    const card = document.createElement('div');
+                    card.className = 'capability-card';
+                    card.innerHTML = `
+                        <div class="capability-name">🌐 ${browser}</div>
+                        <div class="capability-description">Browser automation support</div>
+                    `;
+                    capabilitiesGrid.appendChild(card);
+                });
+                
+                // Add node features
+                capabilities.node_features.forEach(feature => {
+                    const card = document.createElement('div');
+                    card.className = 'capability-card';
+                    card.innerHTML = `
+                        <div class="capability-name">📱 ${feature}</div>
+                        <div class="capability-description">Mobile/node device capability</div>
+                    `;
+                    capabilitiesGrid.appendChild(card);
+                });
+                
+            } catch (error) {
+                console.error('Failed to load capabilities:', error);
+            }
+        }
+
+        async function loadSessionStatus() {
+            try {
+                const response = await fetch('/api/sessions/status');
+                const sessions = await response.json();
+                
+                const sessionsList = document.getElementById('sessions-list');
+                
+                if (sessions.success && sessions.sessions) {
+                    // This would need proper parsing of session data
+                    sessionsList.innerHTML = '<div class="empty-state">Session monitoring available</div>';
+                } else {
+                    sessionsList.innerHTML = '<div class="empty-state">No active sessions</div>';
+                }
+                
+            } catch (error) {
+                console.error('Failed to load session status:', error);
+                document.getElementById('sessions-list').innerHTML = '<div class="empty-state">Session status unavailable</div>';
+            }
+        }
+
+        // Enhanced task execution functions
+        async function executeTask(id, event) {
+            event.stopPropagation();
+            
+            try {
+                const response = await fetch(`/api/activities/${id}/execute`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(`Task execution started: ${result.message}`, 'success');
+                    await loadActivities(); // Refresh to show updated status
+                } else {
+                    showNotification('Failed to execute task', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Execute task failed:', error);
+                showNotification('Execute request failed', 'error');
+            }
+        }
+
+        async function retryTask(id, event) {
+            event.stopPropagation();
+            
+            try {
+                const response = await fetch(`/api/activities/${id}/retry`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Task retry initiated', 'success');
+                    await loadActivities();
+                } else {
+                    showNotification('Failed to retry task', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Retry task failed:', error);
+                showNotification('Retry request failed', 'error');
+            }
+        }
+
+        // Enhanced card creation with execute/retry buttons
+        function createCardElement(activity) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.id = activity.id;
+            card.style.position = 'relative';
+
+            let tagsHtml = '';
+            if (activity.ai_tool) {
+                tagsHtml += `<span class="tag tool">${activity.ai_tool}</span>`;
+            }
+            if (activity.project) {
+                tagsHtml += `<span class="tag project">${activity.project}</span>`;
+            }
+            if (activity.time_spent > 0) {
+                tagsHtml += `<span class="tag time">⏱ ${formatTime(activity.time_spent)}</span>`;
+            }
+            if (activity.outcome) {
+                const outcomeClass = activity.outcome === 'success' ? '' : activity.outcome === 'partial' ? 'partial' : 'failed';
+                const outcomeIcon = activity.outcome === 'success' ? '✓' : activity.outcome === 'partial' ? '◐' : '✗';
+                tagsHtml += `<span class="tag outcome ${outcomeClass}">${outcomeIcon} ${activity.outcome}</span>`;
+            }
+            if (activity.iteration_count > 1) {
+                tagsHtml += `<span class="tag iterations">${activity.iteration_count} iterations</span>`;
+            }
+
+            // Status indicator
+            let statusClass = '';
+            if (activity.status === 'in-progress') {
+                statusClass = 'executing';
+            } else if (activity.outcome === 'success') {
+                statusClass = 'success';
+            } else if (activity.outcome === 'failed') {
+                statusClass = 'failed';
+            }
+
+            // Enhanced action buttons
+            let actionButtons = `
+                <button onclick="editActivity(${activity.id})">Edit</button>
+                <button class="execute-btn" onclick="executeTask(${activity.id}, event)">Execute</button>
+            `;
+            
+            if (activity.outcome === 'failed' || activity.status === 'todo') {
+                actionButtons += `<button class="retry-btn" onclick="retryTask(${activity.id}, event)">Retry</button>`;
+            }
+            
+            actionButtons += `<button class="delete-btn" onclick="deleteActivity(${activity.id})">Delete</button>`;
+
+            const isRunning = activity.time_started && activeTimers[activity.id];
+            card.innerHTML = `
+                <div class="card-status-indicator ${statusClass}"></div>
+                <div class="card-title">${escapeHtml(activity.title)}</div>
+                ${activity.description ? `<div class="card-description">${escapeHtml(activity.description)}</div>` : ''}
+                <div class="card-meta">${tagsHtml}</div>
+                <div class="card-timer">
+                    <span class="timer-display" id="timer-${activity.id}">${formatTime(activity.time_spent || 0)}</span>
+                    <button class="timer-btn ${isRunning ? 'running' : ''}" onclick="toggleTimer(${activity.id}, event)">
+                        ${isRunning ? '⏹ Stop' : '▶ Start'}
+                    </button>
+                    <button class="iteration-btn" onclick="incrementIteration(${activity.id}, event)">
+                        +1 Iteration
+                    </button>
+                </div>
+                <div class="card-actions">
+                    ${actionButtons}
+                </div>
+            `;
+
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+
+            // Start timer interval if running
+            if (activity.time_started && !activeTimers[activity.id]) {
+                startTimerInterval(activity);
+            }
+
+            return card;
+        }
+
+        // In-app notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `in-app-notification ${type}`;
+            notification.textContent = message;
+            
+            Object.assign(notification.style, {
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                background: type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#6c63ff',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                zIndex: '10000',
+                opacity: '0',
+                transform: 'translateY(-20px)',
+                transition: 'all 0.3s ease'
+            });
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateY(0)';
+            }, 10);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(-20px)';
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
+
+        // Auto-refresh integration status
+        setInterval(checkIntegrationHealth, 30000); // Check every 30 seconds
+
         // Initial load
         loadActivities();
         checkNotificationStatus();
+        checkIntegrationHealth(); // Check integration on startup
     </script>
 </body>
 </html>
