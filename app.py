@@ -16,49 +16,89 @@ DATABASE = 'ai_activities.db'
 ENABLE_NOTIFICATIONS = True
 
 def execute_task_via_clawdbot(activity_data):
-    """Execute the task using Clawdbot's automation capabilities"""
+    """Execute the task using Clawdbot's automation capabilities with proper AI tool routing"""
     try:
         title = activity_data.get('title', '')
         description = activity_data.get('description', '')
         ai_tool = activity_data.get('ai_tool', '')
+        task_id = activity_data.get('id')
         
-        # Create a comprehensive task execution prompt
+        # Parse browser preference from description
+        browser_preference = 'Safari'  # Default to Safari for macOS
+        if 'chrome' in description.lower():
+            browser_preference = 'Chrome'
+        elif 'firefox' in description.lower():
+            browser_preference = 'Firefox'
+        elif 'safari' in description.lower():
+            browser_preference = 'Safari'
+        
+        # Create a comprehensive task execution prompt with specific requirements
         task_prompt = f"""
-TASK EXECUTION REQUEST:
+AUTOMATED TASK EXECUTION - AI Activity Tracker
 
+TASK DETAILS:
 Title: {title}
 Description: {description}
-AI Tool: {ai_tool}
+Required AI Tool: {ai_tool}
+Required Browser: {browser_preference}
+Task ID: {task_id}
 
-Please execute this task on the Mac mini. This task was created in the AI Activity Tracker and should be performed automatically.
+EXECUTION REQUIREMENTS:
+1. Use EXACTLY the AI tool specified: {ai_tool}
+2. Use EXACTLY the browser specified: {browser_preference}
+3. Follow the description precisely
+4. For web tasks: Use the specified browser, not browser tool defaults
+5. For Safari: Use 'open -a Safari "URL"' commands
+6. For Chrome: Use 'open -a "Google Chrome" "URL"' commands
 
-Key requirements:
-- Use browser automation if web-related
-- Use system commands for macOS operations
-- Use appropriate tools based on the task description
-- Update the task status when complete
+COMPLETION CALLBACK:
+When task is complete, call:
+curl -X POST http://localhost:8080/api/activities/{task_id}/complete \\
+-H "Content-Type: application/json" \\
+-d '{{"outcome": "success/partial/failed", "outcome_notes": "detailed results"}}'
 
-Task ID: {activity_data.get('id')}
+Execute this task precisely as specified. Do not substitute tools or browsers.
 """
         
-        # Send task to Clawdbot for execution via sessions_spawn
-        cmd = [
-            'clawdbot', 'sessions', 'spawn',
-            '--task', task_prompt,
-            '--label', f"ai-tracker-task-{activity_data.get('id')}",
-            '--cleanup', 'keep'  # Keep session for debugging
-        ]
+        # Route to appropriate AI tool if not using current session
+        if ai_tool and ai_tool.lower() != 'claude':
+            # For non-Claude tools, specify the agent/model
+            agent_map = {
+                'chatgpt': 'openai/gpt-4',  # If available
+                'gpt': 'openai/gpt-4',
+                'gemini': 'google/gemini-pro',  # If available
+            }
+            
+            agent_id = agent_map.get(ai_tool.lower(), None)
+            
+            cmd = [
+                'clawdbot', 'sessions', 'spawn',
+                '--task', task_prompt,
+                '--label', f"ai-tracker-{ai_tool.lower()}-{task_id}",
+                '--cleanup', 'keep'
+            ]
+            
+            if agent_id:
+                cmd.extend(['--agent-id', agent_id])
+        else:
+            # Use current Clawdbot session (Claude)
+            cmd = [
+                'clawdbot', 'sessions', 'spawn', 
+                '--task', task_prompt,
+                '--label', f"ai-tracker-claude-{task_id}",
+                '--cleanup', 'keep'
+            ]
         
         # Execute in background
         subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        print(f"🤖 Task dispatched to Clawdbot: {title}")
+        print(f"🤖 Task dispatched to {ai_tool or 'Clawdbot'}: {title} (Browser: {browser_preference})")
         
-        # Update activity to show it's being executed
+        # Update activity to show it's being executed with proper AI tool
         conn = get_db()
         conn.execute(
             'UPDATE activities SET status = ?, updated_at = ? WHERE id = ?',
-            ('in-progress', datetime.now(), activity_data.get('id'))
+            ('in-progress', datetime.now(), task_id)
         )
         conn.commit()
         conn.close()
