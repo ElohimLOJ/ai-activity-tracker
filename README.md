@@ -38,7 +38,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-4. **Open your browser** and visit: `http://localhost:5000`
+4. **Open your browser** and visit: `http://localhost:8080`
 
 ## Project Structure
 
