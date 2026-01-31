@@ -10,138 +10,287 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 CORS(app)
 
+# Configuration
 DATABASE = 'ai_activities.db'
+ENABLE_NOTIFICATIONS = os.environ.get('AI_TRACKER_NOTIFICATIONS', 'true').lower() == 'true'
+SERVER_PORT = int(os.environ.get('AI_TRACKER_PORT', '8080'))
+AUTO_EXECUTE = os.environ.get('AI_TRACKER_AUTO_EXECUTE', 'true').lower() == 'true'
+NOTIFICATION_CHANNEL = os.environ.get('AI_TRACKER_NOTIFICATION_CHANNEL', 'telegram')
 
-# Notification configuration (preserved from original)
-ENABLE_NOTIFICATIONS = True
+# Integration settings
+CLAWDBOT_TIMEOUT = 30  # seconds for Clawdbot operations
+SESSION_CLEANUP_POLICY = 'keep'  # keep sessions for debugging
+DEFAULT_BROWSER = 'Safari'  # macOS default
 
 def execute_task_via_clawdbot(activity_data):
-    """Execute the task using Clawdbot's automation capabilities with proper AI tool routing"""
+    """Enhanced task execution using full Clawdbot capabilities with proper tool routing"""
     try:
         title = activity_data.get('title', '')
         description = activity_data.get('description', '')
         ai_tool = activity_data.get('ai_tool', '')
+        project = activity_data.get('project', '')
         task_id = activity_data.get('id')
         
-        # Parse browser preference from description
-        browser_preference = 'Safari'  # Default to Safari for macOS
-        if 'chrome' in description.lower():
-            browser_preference = 'Chrome'
-        elif 'firefox' in description.lower():
-            browser_preference = 'Firefox'
-        elif 'safari' in description.lower():
-            browser_preference = 'Safari'
+        # Enhanced capability detection from description
+        capabilities = {
+            'browser': None,
+            'needs_nodes': False,
+            'needs_canvas': False,
+            'file_operations': False,
+            'system_commands': False,
+            'screenshot': False,
+            'location': False
+        }
         
-        # Create a comprehensive task execution prompt with specific requirements
+        desc_lower = description.lower()
+        
+        # Browser detection with profile preferences
+        if any(browser in desc_lower for browser in ['chrome', 'google']):
+            capabilities['browser'] = 'chrome'
+        elif 'safari' in desc_lower:
+            capabilities['browser'] = 'safari'
+        elif 'firefox' in desc_lower:
+            capabilities['browser'] = 'firefox'
+        
+        # Capability detection
+        if any(word in desc_lower for word in ['screenshot', 'capture', 'snap']):
+            capabilities['screenshot'] = True
+        if any(word in desc_lower for word in ['file', 'create', 'write', 'save']):
+            capabilities['file_operations'] = True
+        if any(word in desc_lower for word in ['node', 'phone', 'mobile', 'camera']):
+            capabilities['needs_nodes'] = True
+        if any(word in desc_lower for word in ['present', 'canvas', 'display', 'show']):
+            capabilities['needs_canvas'] = True
+        if any(word in desc_lower for word in ['terminal', 'command', 'exec', 'run']):
+            capabilities['system_commands'] = True
+        if any(word in desc_lower for word in ['location', 'gps', 'where', 'address']):
+            capabilities['location'] = True
+        
+        # Create enhanced task execution prompt
         task_prompt = f"""
-AUTOMATED TASK EXECUTION - AI Activity Tracker
+🤖 AI ACTIVITY TRACKER - AUTOMATED TASK EXECUTION
 
-TASK DETAILS:
-Title: {title}
-Description: {description}
-Required AI Tool: {ai_tool}
-Required Browser: {browser_preference}
-Task ID: {task_id}
+📋 TASK CONTEXT:
+• Title: {title}
+• Project: {project or 'General'}
+• Requested AI Tool: {ai_tool}
+• Task ID: {task_id}
+• Full Description: {description}
 
-EXECUTION REQUIREMENTS:
-1. Use EXACTLY the AI tool specified: {ai_tool}
-2. Use EXACTLY the browser specified: {browser_preference}
-3. Follow the description precisely
-4. For web tasks: Use the specified browser, not browser tool defaults
-5. For Safari: Use 'open -a Safari "URL"' commands
-6. For Chrome: Use 'open -a "Google Chrome" "URL"' commands
-
-COMPLETION CALLBACK:
-When task is complete, call:
-curl -X POST http://localhost:8080/api/activities/{task_id}/complete \\
--H "Content-Type: application/json" \\
--d '{{"outcome": "success/partial/failed", "outcome_notes": "detailed results"}}'
-
-Execute this task precisely as specified. Do not substitute tools or browsers.
+🎯 EXECUTION STRATEGY:
 """
         
-        # Route to appropriate AI tool if not using current session
-        if ai_tool and ai_tool.lower() != 'claude':
-            # For non-Claude tools, specify the agent/model
-            agent_map = {
-                'chatgpt': 'openai/gpt-4',  # If available
-                'gpt': 'openai/gpt-4',
-                'gemini': 'google/gemini-pro',  # If available
-            }
+        # Add tool-specific guidance
+        if capabilities['browser']:
+            if capabilities['browser'] == 'safari':
+                task_prompt += """
+🌐 BROWSER TASK (Safari Required):
+• Use Safari specifically: open -a Safari "URL"  
+• Do not use browser tool - use direct Safari commands
+• For web automation, consider using AppleScript if needed
+"""
+            elif capabilities['browser'] == 'chrome':
+                task_prompt += """
+🌐 BROWSER TASK (Chrome Required):
+• Use Chrome specifically: open -a "Google Chrome" "URL"
+• Alternative: Use browser tool with profile="chrome"
+• Can use Clawdbot browser extension if available
+"""
+        
+        if capabilities['screenshot']:
+            task_prompt += """
+📸 SCREENSHOT TASK:
+• Use screencapture command: screencapture -c (to clipboard)
+• Or: screencapture ~/Desktop/screenshot.png (to file)
+• Consider nodes tool if mobile device screenshot needed
+"""
+        
+        if capabilities['file_operations']:
+            task_prompt += """
+📁 FILE OPERATIONS:
+• Use appropriate commands: touch, echo, cat, mkdir
+• Consider write tool for complex file operations
+• Save to appropriate directory (~/Desktop, ~/Documents, etc.)
+"""
+        
+        if capabilities['needs_nodes']:
+            task_prompt += """
+📱 NODE CAPABILITIES NEEDED:
+• Use nodes tool for mobile/device interactions
+• Available: camera_snap, screen_record, location_get
+• Check nodes status first: nodes status
+"""
+        
+        if capabilities['needs_canvas']:
+            task_prompt += """
+🖥️ CANVAS PRESENTATION:
+• Use canvas tool for displaying content
+• Consider canvas present for visual presentations
+• Can snapshot canvas for documentation
+"""
+        
+        # Add completion callback with dynamic port detection
+        server_port = os.environ.get('AI_TRACKER_PORT', '8080')
+        callback_url = f"http://localhost:{server_port}/api/activities/{task_id}/complete"
+        
+        task_prompt += f"""
+
+✅ COMPLETION REQUIREMENTS:
+1. Execute task following capability requirements above
+2. Use specified tools/browsers as detected
+3. Provide detailed outcome and notes
+4. Call completion callback when done:
+
+curl -X POST {callback_url} \\
+  -H "Content-Type: application/json" \\
+  -d '{{"outcome": "success/partial/failed", "outcome_notes": "detailed execution results with what was accomplished"}}'
+
+🎯 SUCCESS CRITERIA:
+• Task completed as described
+• Appropriate tools used (Safari vs Chrome, etc.)
+• Results documented in outcome_notes
+• Status callback executed
+
+Execute this task with full Clawdbot capabilities. Be precise about tool selection.
+"""
+        
+        # Enhanced spawning with better session management
+        session_label = f"ai-tracker-{ai_tool.lower() if ai_tool else 'auto'}-{task_id}"
+        
+        cmd = [
+            'clawdbot', 'sessions', 'spawn',
+            '--task', task_prompt,
+            '--label', session_label,
+            '--cleanup', 'keep',  # Keep for debugging and monitoring
+        ]
+        
+        # Note: Removed agent-id routing since it's not in allowlist
+        # All tasks will use current Claude session for now
+        
+        # Execute with better error capture
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"🤖 Task dispatched successfully: {title}")
+            print(f"   Session: {session_label}")
+            print(f"   Capabilities: {capabilities}")
             
-            agent_id = agent_map.get(ai_tool.lower(), None)
-            
-            cmd = [
-                'clawdbot', 'sessions', 'spawn',
-                '--task', task_prompt,
-                '--label', f"ai-tracker-{ai_tool.lower()}-{task_id}",
-                '--cleanup', 'keep'
-            ]
-            
-            if agent_id:
-                cmd.extend(['--agent-id', agent_id])
+            # Store session info for tracking
+            conn = get_db()
+            conn.execute(
+                '''UPDATE activities 
+                   SET status = ?, updated_at = ?, 
+                       outcome_notes = ?
+                   WHERE id = ?''',
+                ('in-progress', datetime.now(),
+                 f"Dispatched to Clawdbot session: {session_label}",
+                 task_id)
+            )
+            conn.commit()
+            conn.close()
         else:
-            # Use current Clawdbot session (Claude)
-            cmd = [
-                'clawdbot', 'sessions', 'spawn', 
-                '--task', task_prompt,
-                '--label', f"ai-tracker-claude-{task_id}",
-                '--cleanup', 'keep'
-            ]
-        
-        # Execute in background
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        print(f"🤖 Task dispatched to {ai_tool or 'Clawdbot'}: {title} (Browser: {browser_preference})")
-        
-        # Update activity to show it's being executed with proper AI tool
-        conn = get_db()
-        conn.execute(
-            'UPDATE activities SET status = ?, updated_at = ? WHERE id = ?',
-            ('in-progress', datetime.now(), task_id)
-        )
-        conn.commit()
-        conn.close()
+            print(f"❌ Task dispatch failed: {result.stderr}")
+            # Mark as failed
+            conn = get_db()
+            conn.execute(
+                '''UPDATE activities 
+                   SET status = ?, outcome = ?, outcome_notes = ?, updated_at = ?
+                   WHERE id = ?''',
+                ('todo', 'failed', f"Dispatch failed: {result.stderr}", 
+                 datetime.now(), task_id)
+            )
+            conn.commit()
+            conn.close()
         
     except Exception as e:
         print(f"❌ Task execution failed: {e}")
-        pass
+        # Update activity with error
+        try:
+            conn = get_db()
+            conn.execute(
+                '''UPDATE activities 
+                   SET outcome = ?, outcome_notes = ?, updated_at = ?
+                   WHERE id = ?''',
+                ('failed', f"Execution error: {str(e)}", datetime.now(), task_id)
+            )
+            conn.commit()
+            conn.close()
+        except:
+            pass
 
-def send_notification(message, activity_data=None):
-    """Send notification via Clawdbot message tool to Telegram"""
+def send_notification(message, activity_data=None, notification_type='info'):
+    """Enhanced notification system using full Clawdbot messaging capabilities"""
     if not ENABLE_NOTIFICATIONS:
         return
     
     try:
-        # Format the notification message
+        # Format the notification message with enhanced context
         if activity_data:
             ai_tool = f" using {activity_data.get('ai_tool')}" if activity_data.get('ai_tool') else ""
             project = f" (Project: {activity_data.get('project')})" if activity_data.get('project') else ""
             status_emoji = {"todo": "📋", "in-progress": "⚡", "done": "✅"}.get(activity_data.get('status'), "📌")
             
+            # Enhanced notification format with more context
             notification = f"{status_emoji} **AI Tracker Update**\n\n"
             notification += f"**{message}**\n"
             notification += f"📝 *{activity_data.get('title')}*{ai_tool}{project}\n"
             
             if activity_data.get('description'):
-                notification += f"💬 {activity_data.get('description')[:100]}{'...' if len(activity_data.get('description', '')) > 100 else ''}\n"
+                desc_preview = activity_data.get('description')
+                if len(desc_preview) > 150:
+                    desc_preview = desc_preview[:150] + "..."
+                notification += f"💬 {desc_preview}\n"
+            
+            # Add timing information if available
+            if activity_data.get('time_spent') and activity_data.get('time_spent') > 0:
+                minutes = activity_data.get('time_spent') // 60
+                if minutes > 0:
+                    notification += f"⏱ Time spent: {minutes}m\n"
+            
+            # Add outcome information
+            if activity_data.get('outcome'):
+                outcome_emoji = {"success": "✅", "partial": "🟡", "failed": "❌"}.get(activity_data.get('outcome'), "")
+                notification += f"{outcome_emoji} Outcome: {activity_data.get('outcome').title()}\n"
+            
+            # Add iteration count if > 1
+            if activity_data.get('iteration_count', 1) > 1:
+                notification += f"🔄 Iterations: {activity_data.get('iteration_count')}\n"
             
             notification += f"📊 Status: **{activity_data.get('status', 'todo').replace('-', ' ').title()}**"
+            
+            # Add tracker access link
+            notification += f"\n\n🔗 [View Tracker](http://localhost:8080)"
         else:
             notification = message
         
-        # Send directly via Clawdbot subprocess call
+        # Enhanced message sending with error handling
         cmd = [
             'clawdbot', 'message', 'send',
             '--channel', 'telegram', 
             '--message', notification
         ]
         
-        # Run in background to avoid blocking the web request
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Add message effects for certain notification types
+        if notification_type == 'success':
+            # Could add effects if supported: cmd.extend(['--effect', 'balloons'])
+            pass
+        elif notification_type == 'urgent':
+            # Could add priority if supported
+            pass
         
-        print(f"📢 Notification queued: {notification[:50]}...")
+        # Execute with better error handling
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
+        if result.returncode == 0:
+            print(f"📢 Notification sent successfully: {notification[:50]}...")
+        else:
+            print(f"⚠️  Notification warning: {result.stderr}")
+            # Fallback: try without channel specification
+            fallback_cmd = ['clawdbot', 'message', 'send', '--message', notification]
+            subprocess.Popen(fallback_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+    except subprocess.TimeoutExpired:
+        print("⏰ Notification timeout - continuing without blocking")
     except Exception as e:
         print(f"❌ Notification failed: {e}")
         pass  # Don't break the app if notifications fail
@@ -214,8 +363,9 @@ def create_activity():
     # Send notification for new activity
     send_notification("New activity created!", activity_dict)
     
-    # AUTO-EXECUTE: Attempt to execute the task via Clawdbot
-    execute_task_via_clawdbot(activity_dict)
+    # AUTO-EXECUTE: Attempt to execute the task via Clawdbot (if enabled)
+    if AUTO_EXECUTE and activity_dict.get('status') == 'todo':
+        execute_task_via_clawdbot(activity_dict)
     
     return jsonify(activity_dict), 201
 
@@ -609,10 +759,173 @@ def complete_task(id):
     
     if activity:
         activity_dict = dict(activity)
-        send_notification("Task completed successfully!", activity_dict)
+        outcome = activity_dict.get('outcome', 'success')
+        outcome_emoji = {"success": "✅", "partial": "🟡", "failed": "❌"}.get(outcome, "✅")
+        send_notification(f"Task completed: {outcome_emoji} {outcome.title()}", activity_dict)
     
     return jsonify({'success': True})
 
+@app.route('/api/sessions/status', methods=['GET'])
+def get_sessions_status():
+    """Get status of Clawdbot sessions related to activities"""
+    try:
+        # Use sessions_list to get current spawned sessions
+        result = subprocess.run(['clawdbot', 'sessions', 'list', '--limit', '20'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            # Parse session info (this would need proper JSON parsing)
+            return jsonify({'sessions': result.stdout, 'success': True})
+        else:
+            return jsonify({'error': result.stderr, 'success': False})
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False})
+
+@app.route('/api/integration/health', methods=['GET'])
+def integration_health():
+    """Check integration health with Clawdbot"""
+    health_status = {
+        'clawdbot_available': False,
+        'notifications_enabled': ENABLE_NOTIFICATIONS,
+        'sessions_spawn_available': False,
+        'message_tool_available': False,
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    try:
+        # Test clawdbot availability
+        result = subprocess.run(['clawdbot', '--version'], 
+                              capture_output=True, text=True, timeout=5)
+        health_status['clawdbot_available'] = result.returncode == 0
+        
+        # Test sessions spawn
+        result = subprocess.run(['clawdbot', 'sessions', 'list'], 
+                              capture_output=True, text=True, timeout=5)
+        health_status['sessions_spawn_available'] = result.returncode == 0
+        
+        # Test message tool (just command availability)
+        result = subprocess.run(['clawdbot', 'message', '--help'], 
+                              capture_output=True, text=True, timeout=5)
+        health_status['message_tool_available'] = result.returncode == 0
+        
+    except Exception as e:
+        health_status['error'] = str(e)
+    
+    return jsonify(health_status)
+
+@app.route('/api/activities/<int:id>/retry', methods=['POST'])
+def retry_task(id):
+    """Retry a failed task execution"""
+    conn = get_db()
+    activity = conn.execute('SELECT * FROM activities WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    
+    if not activity:
+        return jsonify({'error': 'Activity not found'}), 404
+    
+    activity_dict = dict(activity)
+    
+    # Reset status and clear previous failure notes
+    conn = get_db()
+    conn.execute(
+        '''UPDATE activities 
+           SET status = 'todo', outcome = NULL, outcome_notes = NULL, 
+               updated_at = ?, iteration_count = iteration_count + 1
+           WHERE id = ?''',
+        (datetime.now(), id)
+    )
+    conn.commit()
+    conn.close()
+    
+    # Re-execute the task
+    execute_task_via_clawdbot(activity_dict)
+    
+    return jsonify({'success': True, 'message': f'Task "{activity_dict["title"]}" retry dispatched'})
+
+@app.route('/api/capabilities', methods=['GET'])
+def get_capabilities():
+    """Get available Clawdbot capabilities for task planning"""
+    capabilities = {
+        'browsers': ['Safari', 'Chrome', 'Firefox'],
+        'tools': {
+            'browser': 'Web automation and browsing',
+            'exec': 'System command execution',
+            'write': 'File creation and editing', 
+            'read': 'File reading',
+            'nodes': 'Mobile device integration',
+            'canvas': 'Visual presentations',
+            'message': 'Notifications and messaging'
+        },
+        'node_features': [
+            'camera_snap', 'screen_record', 'location_get', 
+            'notify', 'run (command execution)'
+        ],
+        'browser_profiles': ['chrome', 'clawd'],
+        'export_formats': ['CSV', 'Text Report', 'Calendar ICS']
+    }
+    
+    return jsonify(capabilities)
+
+def check_clawdbot_integration():
+    """Check Clawdbot integration on startup"""
+    print("🔍 Checking Clawdbot integration...")
+    
+    try:
+        # Check if clawdbot is available
+        result = subprocess.run(['clawdbot', '--version'], 
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            print("✅ Clawdbot is available")
+        else:
+            print("⚠️  Clawdbot not available - tasks won't auto-execute")
+            return False
+            
+        # Check sessions capability
+        result = subprocess.run(['clawdbot', 'sessions', 'list', '--limit', '1'], 
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            print("✅ Sessions spawn capability available")
+        else:
+            print("⚠️  Sessions not available - limited functionality")
+            
+        # Check message capability  
+        result = subprocess.run(['clawdbot', 'message', '--help'], 
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            print("✅ Message tool available for notifications")
+        else:
+            print("⚠️  Message tool not available - notifications disabled")
+            global ENABLE_NOTIFICATIONS
+            ENABLE_NOTIFICATIONS = False
+            
+        print("🎯 Integration check complete")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Integration check failed: {e}")
+        print("⚠️  Running in standalone mode - no auto-execution")
+        return False
+
 if __name__ == '__main__':
+    print("🚀 Starting AI Activity Tracker Pro...")
+    print(f"📊 Server port: {SERVER_PORT}")
+    print(f"🔔 Notifications: {'Enabled' if ENABLE_NOTIFICATIONS else 'Disabled'}")
+    print(f"🤖 Auto-execute: {'Enabled' if AUTO_EXECUTE else 'Disabled'}")
+    print(f"📱 Notification channel: {NOTIFICATION_CHANNEL}")
+    
+    # Initialize database
     init_db()
-    app.run(debug=True, port=8080)
+    print("✅ Database initialized")
+    
+    # Check Clawdbot integration
+    integration_ok = check_clawdbot_integration()
+    
+    if integration_ok:
+        print("🎉 AI Activity Tracker Pro ready with full Clawdbot integration!")
+    else:
+        print("📋 AI Activity Tracker Pro ready in tracking-only mode")
+    
+    print(f"🌐 Access your tracker at: http://localhost:{SERVER_PORT}")
+    print("=" * 60)
+    
+    # Start Flask server
+    app.run(debug=True, port=SERVER_PORT, host='127.0.0.1')
