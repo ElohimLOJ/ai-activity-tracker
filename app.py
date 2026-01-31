@@ -15,6 +15,58 @@ DATABASE = 'ai_activities.db'
 # Notification configuration (preserved from original)
 ENABLE_NOTIFICATIONS = True
 
+def execute_task_via_clawdbot(activity_data):
+    """Execute the task using Clawdbot's automation capabilities"""
+    try:
+        title = activity_data.get('title', '')
+        description = activity_data.get('description', '')
+        ai_tool = activity_data.get('ai_tool', '')
+        
+        # Create a comprehensive task execution prompt
+        task_prompt = f"""
+TASK EXECUTION REQUEST:
+
+Title: {title}
+Description: {description}
+AI Tool: {ai_tool}
+
+Please execute this task on the Mac mini. This task was created in the AI Activity Tracker and should be performed automatically.
+
+Key requirements:
+- Use browser automation if web-related
+- Use system commands for macOS operations
+- Use appropriate tools based on the task description
+- Update the task status when complete
+
+Task ID: {activity_data.get('id')}
+"""
+        
+        # Send task to Clawdbot for execution via sessions_spawn
+        cmd = [
+            'clawdbot', 'sessions', 'spawn',
+            '--task', task_prompt,
+            '--label', f"ai-tracker-task-{activity_data.get('id')}",
+            '--cleanup', 'keep'  # Keep session for debugging
+        ]
+        
+        # Execute in background
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        print(f"🤖 Task dispatched to Clawdbot: {title}")
+        
+        # Update activity to show it's being executed
+        conn = get_db()
+        conn.execute(
+            'UPDATE activities SET status = ?, updated_at = ? WHERE id = ?',
+            ('in-progress', datetime.now(), activity_data.get('id'))
+        )
+        conn.commit()
+        conn.close()
+        
+    except Exception as e:
+        print(f"❌ Task execution failed: {e}")
+        pass
+
 def send_notification(message, activity_data=None):
     """Send notification via Clawdbot message tool to Telegram"""
     if not ENABLE_NOTIFICATIONS:
@@ -121,6 +173,9 @@ def create_activity():
     
     # Send notification for new activity
     send_notification("New activity created!", activity_dict)
+    
+    # AUTO-EXECUTE: Attempt to execute the task via Clawdbot
+    execute_task_via_clawdbot(activity_dict)
     
     return jsonify(activity_dict), 201
 
@@ -473,6 +528,49 @@ def notification_status():
 def test_notification():
     """Test notification system"""
     send_notification("🧪 Test notification from Enhanced AI Activity Tracker!")
+    return jsonify({'success': True})
+
+@app.route('/api/activities/<int:id>/execute', methods=['POST'])
+def execute_task(id):
+    """Manually execute a task via Clawdbot"""
+    conn = get_db()
+    activity = conn.execute('SELECT * FROM activities WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    
+    if not activity:
+        return jsonify({'error': 'Activity not found'}), 404
+    
+    activity_dict = dict(activity)
+    execute_task_via_clawdbot(activity_dict)
+    
+    return jsonify({'success': True, 'message': f'Task "{activity_dict["title"]}" dispatched to Clawdbot'})
+
+@app.route('/api/activities/<int:id>/complete', methods=['POST'])
+def complete_task(id):
+    """Mark task as completed (called by Clawdbot when task is done)"""
+    data = request.json
+    conn = get_db()
+    
+    conn.execute(
+        '''UPDATE activities 
+           SET status = 'done', outcome = ?, outcome_notes = ?, 
+               completed_at = ?, updated_at = ?
+           WHERE id = ?''',
+        (data.get('outcome', 'success'), 
+         data.get('outcome_notes', 'Task completed by Clawdbot'),
+         datetime.now().isoformat(),
+         datetime.now(),
+         id)
+    )
+    conn.commit()
+    
+    activity = conn.execute('SELECT * FROM activities WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    
+    if activity:
+        activity_dict = dict(activity)
+        send_notification("Task completed successfully!", activity_dict)
+    
     return jsonify({'success': True})
 
 if __name__ == '__main__':
