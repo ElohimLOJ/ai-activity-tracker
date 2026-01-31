@@ -2,12 +2,57 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import sqlite3
 import os
+import requests
 from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
 DATABASE = 'ai_activities.db'
+
+# Notification configuration
+CLAWDBOT_WEBHOOK = "http://localhost:8076/webhook"  # Clawdbot Gateway webhook
+ENABLE_NOTIFICATIONS = True
+
+def send_notification(message, activity_data=None):
+    """Send notification via Clawdbot message tool to Telegram"""
+    if not ENABLE_NOTIFICATIONS:
+        return
+    
+    try:
+        # Format the notification message
+        if activity_data:
+            ai_tool = f" using {activity_data.get('ai_tool')}" if activity_data.get('ai_tool') else ""
+            project = f" (Project: {activity_data.get('project')})" if activity_data.get('project') else ""
+            status_emoji = {"todo": "📋", "in-progress": "⚡", "done": "✅"}.get(activity_data.get('status'), "📌")
+            
+            notification = f"{status_emoji} **AI Tracker Update**\n\n"
+            notification += f"**{message}**\n"
+            notification += f"📝 *{activity_data.get('title')}*{ai_tool}{project}\n"
+            
+            if activity_data.get('description'):
+                notification += f"💬 {activity_data.get('description')[:100]}{'...' if len(activity_data.get('description', '')) > 100 else ''}\n"
+            
+            notification += f"📊 Status: **{activity_data.get('status', 'todo').replace('-', ' ').title()}**"
+        else:
+            notification = message
+        
+        # Send directly via Clawdbot subprocess call
+        import subprocess
+        cmd = [
+            'clawdbot', 'message', 'send',
+            '--channel', 'telegram', 
+            '--message', notification
+        ]
+        
+        # Run in background to avoid blocking the web request
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        print(f"📢 Notification queued: {notification[:50]}...")
+        
+    except Exception as e:
+        print(f"❌ Notification failed: {e}")
+        pass  # Don't break the app if notifications fail
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -59,13 +104,23 @@ def create_activity():
     conn.commit()
     
     activity = conn.execute('SELECT * FROM activities WHERE id = ?', (activity_id,)).fetchone()
+    activity_dict = dict(activity)
     conn.close()
-    return jsonify(dict(activity)), 201
+    
+    # Send notification for new activity
+    send_notification("New activity created!", activity_dict)
+    
+    return jsonify(activity_dict), 201
 
 @app.route('/api/activities/<int:id>', methods=['PUT'])
 def update_activity(id):
     data = request.json
     conn = get_db()
+    
+    # Get the old activity to detect status changes
+    old_activity = conn.execute('SELECT * FROM activities WHERE id = ?', (id,)).fetchone()
+    old_status = dict(old_activity)['status'] if old_activity else None
+    
     conn.execute(
         '''UPDATE activities 
            SET title = ?, description = ?, ai_tool = ?, project = ?, 
@@ -78,8 +133,19 @@ def update_activity(id):
     conn.commit()
     
     activity = conn.execute('SELECT * FROM activities WHERE id = ?', (id,)).fetchone()
+    activity_dict = dict(activity)
     conn.close()
-    return jsonify(dict(activity))
+    
+    # Send notification for status changes (drag & drop between columns)
+    new_status = data.get('status')
+    if old_status and old_status != new_status:
+        status_names = {"todo": "To Do", "in-progress": "In Progress", "done": "Done"}
+        send_notification(
+            f"Activity moved: {status_names.get(old_status, old_status)} → {status_names.get(new_status, new_status)}", 
+            activity_dict
+        )
+    
+    return jsonify(activity_dict)
 
 @app.route('/api/activities/<int:id>', methods=['DELETE'])
 def delete_activity(id):
@@ -100,6 +166,24 @@ def reorder_activities():
         )
     conn.commit()
     conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/notifications/toggle', methods=['POST'])
+def toggle_notifications():
+    """Toggle notifications on/off"""
+    global ENABLE_NOTIFICATIONS
+    ENABLE_NOTIFICATIONS = not ENABLE_NOTIFICATIONS
+    return jsonify({'enabled': ENABLE_NOTIFICATIONS})
+
+@app.route('/api/notifications/status', methods=['GET'])
+def notification_status():
+    """Get notification status"""
+    return jsonify({'enabled': ENABLE_NOTIFICATIONS})
+
+@app.route('/api/test-notification', methods=['POST'])
+def test_notification():
+    """Test notification system"""
+    send_notification("🧪 Test notification from AI Activity Tracker!")
     return jsonify({'success': True})
 
 if __name__ == '__main__':

@@ -38,6 +38,45 @@
             color: #6c63ff;
         }
 
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .notification-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #a0a0a0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .notification-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .notification-btn.enabled {
+            background: rgba(46, 204, 113, 0.2);
+            color: #58d68d;
+            border-color: rgba(46, 204, 113, 0.3);
+        }
+
+        .notification-btn.disabled {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border-color: rgba(231, 76, 60, 0.3);
+        }
+
         .add-btn {
             background: #6c63ff;
             color: white;
@@ -325,7 +364,13 @@
 <body>
     <div class="header">
         <h1><span>AI</span> Activity Tracker</h1>
-        <button class="add-btn" onclick="openModal()">+ New Activity</button>
+        <div class="header-controls">
+            <button class="notification-btn" id="notification-toggle" onclick="toggleNotifications()">
+                <span id="notification-icon">🔔</span>
+                <span id="notification-text">Notifications ON</span>
+            </button>
+            <button class="add-btn" onclick="openModal()">+ New Activity</button>
+        </div>
     </div>
 
     <div class="board">
@@ -574,7 +619,56 @@
             }
         }
 
-        // Form submission
+        // (Form submission handler moved above to enhance with notifications)
+
+        // Close modal on overlay click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        // Notification functions
+        async function checkNotificationStatus() {
+            try {
+                const response = await fetch('/api/notifications/status');
+                const data = await response.json();
+                updateNotificationUI(data.enabled);
+            } catch (error) {
+                console.error('Failed to check notification status:', error);
+            }
+        }
+
+        async function toggleNotifications() {
+            try {
+                const response = await fetch('/api/notifications/toggle', { method: 'POST' });
+                const data = await response.json();
+                updateNotificationUI(data.enabled);
+                
+                // Test notification
+                if (data.enabled) {
+                    await fetch('/api/test-notification', { method: 'POST' });
+                }
+            } catch (error) {
+                console.error('Failed to toggle notifications:', error);
+            }
+        }
+
+        function updateNotificationUI(enabled) {
+            const button = document.getElementById('notification-toggle');
+            const icon = document.getElementById('notification-icon');
+            const text = document.getElementById('notification-text');
+            
+            if (enabled) {
+                button.className = 'notification-btn enabled';
+                icon.textContent = '🔔';
+                text.textContent = 'Notifications ON';
+            } else {
+                button.className = 'notification-btn disabled';
+                icon.textContent = '🔕';
+                text.textContent = 'Notifications OFF';
+            }
+        }
+
+        // Enhanced activity creation with notification
         document.getElementById('activity-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -588,31 +682,73 @@
                 position: 0
             };
 
-            if (id) {
-                await fetch(`/api/activities/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-            } else {
-                await fetch('/api/activities', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
+            try {
+                if (id) {
+                    await fetch(`/api/activities/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await fetch('/api/activities', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                closeModal();
+                await loadActivities();
+                
+                // Show success message
+                showNotification(`Activity ${id ? 'updated' : 'created'} successfully!`, 'success');
+                
+            } catch (error) {
+                console.error('Failed to save activity:', error);
+                showNotification('Failed to save activity', 'error');
             }
-
-            closeModal();
-            await loadActivities();
         });
 
-        // Close modal on overlay click
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') closeModal();
-        });
+        // In-app notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `in-app-notification ${type}`;
+            notification.textContent = message;
+            
+            // Styling
+            Object.assign(notification.style, {
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                background: type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#6c63ff',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                zIndex: '10000',
+                opacity: '0',
+                transform: 'translateY(-20px)',
+                transition: 'all 0.3s ease'
+            });
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateY(0)';
+            }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(-20px)';
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
 
         // Initial load
         loadActivities();
+        checkNotificationStatus();
     </script>
 </body>
 </html>
