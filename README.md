@@ -1,32 +1,55 @@
-# AI Activity Tracker
+# AI Activity Tracker Pro
 
-A beautiful kanban-style web application for tracking AI-related work activities. Built with Flask and modern JavaScript, featuring a dark-themed UI with drag-and-drop functionality.
+🚀 **A comprehensive productivity analytics platform for AI-powered work.** Track, analyze, and optimize your AI tool usage with professional-grade insights and reporting.
 
-## Features
+## 🎯 Core Features
 
-- 🎯 **Kanban Board**: Visual workflow with Todo → In Progress → Done columns
-- 🤖 **AI Tool Tracking**: Tag activities with specific AI tools (Claude, ChatGPT, Copilot, Gemini, Midjourney)
-- 📁 **Project Organization**: Group activities by project
-- 🔄 **Drag & Drop**: Smooth drag-and-drop reordering between columns
-- 🔔 **Smart Notifications**: Real-time Telegram alerts for activity changes (NEW!)
-- 🌙 **Dark Theme**: Modern, eye-friendly dark UI design
-- 📱 **Responsive**: Works on desktop and mobile devices
-- 💾 **SQLite Database**: Lightweight local data storage
+### 📋 **Enhanced Kanban Board**
+- **Visual Workflow**: Todo → In Progress → Done columns with drag & drop
+- **Rich Cards**: Activity details with time tracking, outcomes, and iteration counts
+- **Live Timers**: Start/stop time tracking directly on cards
+- **Smart Tags**: Color-coded AI tools, projects, outcomes, and time spent
 
-### 🔔 Notification System
-- **New Activity Created**: Get notified when activities are added
-- **Status Changes**: Alerts when activities move between columns (drag & drop)
-- **Activity Updates**: Notifications for edits and modifications
-- **Toggle Control**: Turn notifications on/off with the 🔔/🔕 button
-- **Rich Formatting**: Includes AI tool, project, and description info
+### 📊 **Professional Dashboard**
+- **Overview Stats**: Completion rates, total time, averages
+- **Tool Performance**: Success rates and efficiency metrics for each AI tool
+- **Project Analytics**: Time allocation and progress tracking
+- **Failure Analysis**: Categorized insights into what doesn't work
 
-## Tech Stack
+### ⏱️ **Advanced Time Tracking**
+- **Live Timers**: Click-to-start tracking with real-time display
+- **Manual Entry**: Add time spent manually
+- **Automatic Totals**: Cumulative time tracking across sessions
+- **Time Analytics**: Average time per task, tool efficiency metrics
 
-- **Backend**: Flask 3.0.0 with Flask-CORS
-- **Database**: SQLite with Python sqlite3
-- **Frontend**: Vanilla HTML/CSS/JavaScript
-- **UI**: Modern dark theme with CSS Grid/Flexbox
-- **Drag & Drop**: Native HTML5 Drag and Drop API
+### 🎯 **Outcome Tracking**
+- **Success Ratings**: Success / Partial / Failed outcomes
+- **Detailed Notes**: What worked, what didn't
+- **Iteration Counter**: Track refinement attempts
+- **Failure Categories**: Technical issues, wrong tool, poor prompts, etc.
+
+### 📤 **Export & Reporting**
+- **CSV Export**: Complete data export for external analysis
+- **Executive Reports**: Summary text reports with key insights
+- **Calendar Integration**: Export as .ics files for Apple Calendar, Google Calendar
+- **Analytics Data**: JSON APIs for custom integrations
+
+### 🔔 **Smart Notifications**
+- **Real-time Alerts**: Telegram notifications for activity changes
+- **Activity Updates**: New tasks, status changes, completions
+- **Toggle Control**: Enable/disable notifications
+- **Rich Formatting**: Context-aware notification content
+
+## 🛠️ Tech Stack
+
+- **Backend**: Flask 3.0.0 with advanced REST API endpoints
+- **Database**: SQLite with comprehensive analytics schema
+- **Frontend**: Vanilla JavaScript with professional dashboard charts
+- **UI**: Dark theme with responsive design and animated transitions
+- **Analytics**: Real-time statistics and performance metrics
+- **Export**: CSV, text reports, and calendar integration
+- **Notifications**: Clawdbot/Telegram integration
+- **Time Tracking**: Background timers with live updates
 
 ## Quick Start
 
@@ -64,22 +87,68 @@ ai-tracker/
 └── ai_activities.db   # SQLite database (created automatically)
 ```
 
-## API Endpoints
+## 🔗 API Endpoints
 
+### Activities
 - `GET /api/activities` - Fetch all activities
-- `POST /api/activities` - Create new activity
+- `POST /api/activities` - Create new activity with outcome tracking
 - `PUT /api/activities/<id>` - Update activity
 - `DELETE /api/activities/<id>` - Delete activity
-- `POST /api/activities/reorder` - Reorder activities (drag & drop)
 
-## Supported AI Tools
+### Time Tracking
+- `POST /api/activities/<id>/timer/start` - Start activity timer
+- `POST /api/activities/<id>/timer/stop` - Stop activity timer
+- `POST /api/activities/<id>/iteration` - Increment iteration count
 
-- Claude (Anthropic)
-- ChatGPT (OpenAI)
-- GitHub Copilot
-- Gemini (Google)
-- Midjourney
-- Other (custom)
+### Analytics & Dashboard
+- `GET /api/dashboard` - Get comprehensive analytics data
+- `GET /api/analytics/tools` - Get tool comparison metrics
+
+### Export & Integration
+- `GET /api/export/csv` - Download CSV data export
+- `GET /api/export/report` - Download executive summary report
+- `GET /api/calendar/ics` - Export as calendar (.ics) file
+
+### Notifications
+- `GET /api/notifications/status` - Check notification status
+- `POST /api/notifications/toggle` - Toggle notifications on/off
+- `POST /api/test-notification` - Send test notification
+
+## 🤖 Supported AI Tools
+
+- **Claude** (Anthropic) - with performance analytics
+- **ChatGPT** (OpenAI) - success rate tracking
+- **GitHub Copilot** - coding efficiency metrics  
+- **Gemini** (Google) - iteration analysis
+- **Midjourney** - creative outcome tracking
+- **Cursor** - development workflow analytics
+- **Other** - custom tool tracking
+
+## 📈 What's New in Pro Version
+
+### Enhanced Analytics
+- **Tool Performance Dashboard**: Compare success rates, average time, and iterations across all AI tools
+- **Project Time Allocation**: See where you're spending time and getting results
+- **Failure Pattern Analysis**: Learn from what doesn't work
+- **Outcome Trends**: Track your AI success over time
+
+### Professional Time Tracking
+- **Live Timers**: Start/stop tracking directly on kanban cards
+- **Session Management**: Automatic pause/resume functionality  
+- **Time Analytics**: Average time per tool, per project, per outcome
+- **Cumulative Tracking**: Build up comprehensive time data
+
+### Advanced Export Options
+- **CSV Data Export**: Complete activity database for spreadsheet analysis
+- **Executive Reports**: Summary insights for productivity reviews
+- **Calendar Integration**: Sync with Apple Calendar, Google Calendar via .ics
+- **API Access**: JSON endpoints for custom integrations
+
+### Smart Outcome Tracking
+- **Success Metrics**: Track what works and what doesn't
+- **Iteration Counting**: See how many attempts tasks typically take
+- **Failure Categorization**: Understand why things fail (wrong tool, poor prompt, etc.)
+- **Learning Insights**: Build knowledge from outcomes
 
 ## Development
 
